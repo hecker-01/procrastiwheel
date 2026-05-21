@@ -129,16 +129,15 @@ onUnmounted(() => { if (rafId) cancelAnimationFrame(rafId) })
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  padding: 0 8px;
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.8px;
-  line-height: 1.25;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
   text-align: center;
   color: rgba(255, 255, 255, 0.65);
-  word-break: keep-all;
+  white-space: nowrap;
   transition: color 0.3s, text-shadow 0.3s;
 }
 

@@ -19,8 +19,15 @@ function onSpin() {
 
 <template>
   <div class="page">
-    <SlotMachine @result="onResult" @spin="onSpin" />
-    <ResultBanner :result="result" />
+    <!-- Machine always occupies the centre zone -->
+    <div class="machine-zone">
+      <SlotMachine @result="onResult" @spin="onSpin" />
+    </div>
+
+    <!-- Banner zone: always the same height so it never shifts the machine -->
+    <div class="banner-zone">
+      <ResultBanner :result="result" />
+    </div>
   </div>
 </template>
 
@@ -29,9 +36,28 @@ function onSpin() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 32px;
   min-height: 100vh;
-  padding: 40px 20px;
+  padding: 40px 20px 28px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Takes all remaining vertical space → keeps machine centred */
+.machine-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Always reserves room for the banner so the machine never moves */
+.banner-zone {
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex-shrink: 0;
 }
 </style>
