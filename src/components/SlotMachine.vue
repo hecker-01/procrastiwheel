@@ -5,12 +5,13 @@ import { ACTIVITIES, DURATIONS, UNITS, VALID_HOUR_DURATION_INDICES } from '../co
 
 const emit = defineEmits(['result', 'spin'])
 
-const isSpinning          = ref(false)
-const spinTrigger         = ref(0)
-const totalDuration       = ref(10000)
-const activityTarget      = ref(0)
-const durationTarget      = ref(0)
-const unitTarget          = ref(0)
+const isSpinning     = ref(false)
+const spinTrigger    = ref(0)
+const totalDuration  = ref(5000)
+const activityTarget = ref(0)
+const durationTarget = ref(0)
+const unitTarget     = ref(0)
+const isPulled       = ref(false)
 
 const durationLabels = DURATIONS.map(String)
 const NUM_LIGHTS     = 10
@@ -25,8 +26,6 @@ function randInt(min, max) {
 function onSpin() {
   if (isSpinning.value) return
   emit('spin')
-
-  totalDuration.value = 5000
 
   const unitIdx = randInt(0, UNITS.length - 1)
   const durIdx  = UNITS[unitIdx] === 'hours'
@@ -44,8 +43,8 @@ function onSpin() {
     unit:     UNITS[unitIdx],
   }
 
-  stoppedCount        = 0
-  isSpinning.value    = true
+  stoppedCount     = 0
+  isSpinning.value = true
   spinTrigger.value++
 }
 
@@ -56,85 +55,92 @@ function onReelStopped() {
     emit('result', resolvedResult)
   }
 }
+
+// ── Lever interaction ───────────────────────────────────────
+function onLeverDown(e) {
+  if (isSpinning.value || isPulled.value) return
+  e.preventDefault()
+  isPulled.value = true
+}
+
+function onLeverRelease() {
+  if (!isPulled.value) return
+  isPulled.value = false
+  // Spring back first (300ms transition), then kick off spin
+  setTimeout(onSpin, 280)
+}
 </script>
 
 <template>
   <div class="machine" :class="{ spinning: isSpinning }">
 
-    <!-- Lights row (top) -->
+    <!-- Lights (top) -->
     <div class="lights">
-      <span
-        v-for="i in NUM_LIGHTS" :key="i"
-        class="bulb"
-        :class="{ alt: i % 2 === 0 }"
-      />
+      <span v-for="i in NUM_LIGHTS" :key="i" class="bulb" :class="{ alt: i % 2 === 0 }" />
     </div>
 
     <!-- Title -->
     <h1 class="title">🎰 Procrastiwheel</h1>
     <p class="subtitle">What are you doing next?</p>
 
-    <!-- Reels panel -->
-    <div class="reels-panel">
-      <!-- Activity reel -->
-      <div class="reel-wrap wide">
-        <Reel
-          :items="ACTIVITIES"
-          :targetIndex="activityTarget"
-          :stopFraction="0.6"
-          :totalDuration="totalDuration"
-          :trigger="spinTrigger"
-          @stopped="onReelStopped"
-        />
+    <!-- Body: reels + lever -->
+    <div class="machine-body">
+
+      <!-- Reels panel -->
+      <div class="reels-panel">
+        <div class="reel-wrap wide">
+          <Reel :items="ACTIVITIES" :targetIndex="activityTarget"
+                :stopFraction="0.6" :totalDuration="totalDuration"
+                :trigger="spinTrigger" @stopped="onReelStopped" />
+        </div>
+        <div class="divider" />
+        <div class="reel-wrap narrow">
+          <Reel :items="durationLabels" :targetIndex="durationTarget"
+                :stopFraction="0.8" :totalDuration="totalDuration"
+                :trigger="spinTrigger" @stopped="onReelStopped" />
+        </div>
+        <div class="divider" />
+        <div class="reel-wrap medium">
+          <Reel :items="UNITS" :targetIndex="unitTarget"
+                :stopFraction="1.0" :totalDuration="totalDuration"
+                :trigger="spinTrigger" @stopped="onReelStopped" />
+        </div>
       </div>
 
-      <div class="divider" />
+      <!-- Lever -->
+      <div
+        class="lever-wrap"
+        :class="{ pulled: isPulled, spinning: isSpinning }"
+        @pointerdown="onLeverDown"
+        @pointerup="onLeverRelease"
+        @pointercancel="onLeverRelease"
+        @pointerleave="onLeverRelease"
+      >
+        <!-- Track (rail) -->
+        <div class="lever-track" />
 
-      <!-- Duration reel -->
-      <div class="reel-wrap narrow">
-        <Reel
-          :items="durationLabels"
-          :targetIndex="durationTarget"
-          :stopFraction="0.8"
-          :totalDuration="totalDuration"
-          :trigger="spinTrigger"
-          @stopped="onReelStopped"
-        />
+        <!-- Arm + ball (this whole thing rotates) -->
+        <div class="lever-arm">
+          <div class="lever-ball">
+            <div class="lever-ball-shine" />
+          </div>
+          <div class="lever-rod" />
+        </div>
+
+        <!-- Pivot base -->
+        <div class="lever-pivot">
+          <div class="lever-pivot-inner" />
+        </div>
+
+        <!-- Label -->
+        <span class="lever-label">PULL</span>
       </div>
 
-      <div class="divider" />
-
-      <!-- Unit reel -->
-      <div class="reel-wrap medium">
-        <Reel
-          :items="UNITS"
-          :targetIndex="unitTarget"
-          :stopFraction="1.0"
-          :totalDuration="totalDuration"
-          :trigger="spinTrigger"
-          @stopped="onReelStopped"
-        />
-      </div>
     </div>
 
-    <!-- Spin button -->
-    <button
-      class="spin-btn"
-      :class="{ pulsing: !isSpinning }"
-      :disabled="isSpinning"
-      @click="onSpin"
-    >
-      <span v-if="isSpinning">⏳ Spinning…</span>
-      <span v-else>🎲 SPIN</span>
-    </button>
-
-    <!-- Lights row (bottom) -->
+    <!-- Lights (bottom) -->
     <div class="lights">
-      <span
-        v-for="i in NUM_LIGHTS" :key="i"
-        class="bulb"
-        :class="{ alt: i % 2 !== 0 }"
-      />
+      <span v-for="i in NUM_LIGHTS" :key="i" class="bulb" :class="{ alt: i % 2 !== 0 }" />
     </div>
 
   </div>
@@ -155,7 +161,7 @@ function onReelStopped() {
     0 0 30px rgba(233, 69, 96, 0.28),
     inset 0 0 30px rgba(0, 0, 0, 0.55);
   transition: box-shadow 0.5s ease, border-color 0.4s ease;
-  max-width: min(92vw, 720px);
+  max-width: min(92vw, 760px);
   width: 100%;
 }
 
@@ -171,8 +177,7 @@ function onReelStopped() {
 .lights { display: flex; gap: 10px; }
 
 .bulb {
-  width: 14px;
-  height: 14px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: #f5a623;
   box-shadow: 0 0 7px #f5a623;
@@ -201,7 +206,6 @@ function onReelStopped() {
   text-shadow: 0 0 22px rgba(245, 166, 35, 0.55);
   margin: 0;
 }
-
 .subtitle {
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.95rem;
@@ -209,6 +213,14 @@ function onReelStopped() {
   letter-spacing: 2px;
   text-transform: uppercase;
   margin: -8px 0 0;
+}
+
+/* ── Machine body (reels + lever row) ───────────────────── */
+.machine-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
 }
 
 /* ── Reels panel ────────────────────────────────────────── */
@@ -220,7 +232,8 @@ function onReelStopped() {
   padding: 16px 12px;
   border: 2px solid #1e1e3a;
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9);
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   gap: 0;
 }
 
@@ -235,40 +248,138 @@ function onReelStopped() {
   background: linear-gradient(to bottom, transparent, #e94560 30%, #e94560 70%, transparent);
   border-radius: 2px;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
-/* ── Spin button ────────────────────────────────────────── */
-.spin-btn {
+/* ── Lever ──────────────────────────────────────────────── */
+.lever-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+  padding-bottom: 4px;
+}
+
+.lever-wrap.spinning {
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Rail / track groove behind the arm */
+.lever-track {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 28px;           /* below the ball */
+  width: 6px;
+  height: 108px;       /* matches rod height + pivot */
+  background: linear-gradient(to right, #0a0a1a, #2a2a4a, #0a0a1a);
+  border-radius: 3px;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.8);
+  z-index: 0;
+}
+
+/* The whole arm (ball + rod) rotates together */
+.lever-arm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: bottom center;
+  transform: rotate(0deg);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); /* spring back */
+  z-index: 2;
+  position: relative;
+}
+
+/* When pulled → snap down fast */
+.lever-wrap.pulled .lever-arm {
+  transform: rotate(52deg);
+  transition: transform 0.1s ease-in;
+}
+
+/* Ball / handle */
+.lever-ball {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff8fa3, #e94560, #a01535);
+  box-shadow:
+    0 0 14px rgba(233, 69, 96, 0.7),
+    0 4px 10px rgba(0,0,0,0.5),
+    inset 0 -4px 8px rgba(0,0,0,0.3);
+  position: relative;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s;
+}
+
+.lever-wrap:not(.spinning):hover .lever-ball {
+  box-shadow:
+    0 0 22px rgba(233, 69, 96, 0.95),
+    0 4px 12px rgba(0,0,0,0.5),
+    inset 0 -4px 8px rgba(0,0,0,0.3);
+}
+
+/* Shine dot on the ball */
+.lever-ball-shine {
+  position: absolute;
+  top: 6px; left: 7px;
+  width: 9px; height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.45);
+  transform: rotate(-30deg);
+}
+
+/* Rod / stick */
+.lever-rod {
+  width: 10px;
+  height: 100px;
+  background: linear-gradient(to right, #2a2a4a, #7a7aaa, #c0c0e0, #7a7aaa, #2a2a4a);
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+/* Pivot base */
+.lever-pivot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3a3a5a, #1a1a2e);
+  border: 2px solid #5a5a7a;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.6), 0 0 6px rgba(100,100,160,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  position: relative;
+  margin-top: -4px;
+}
+
+.lever-pivot-inner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #9090c0, #3a3a5a);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+
+/* Label */
+.lever-label {
   font-family: 'Orbitron', monospace;
-  font-weight: 700;
-  font-size: clamp(1rem, 3vw, 1.25rem);
-  letter-spacing: 3px;
-  padding: 14px 52px;
-  background: linear-gradient(135deg, #e94560 0%, #c23152 100%);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  box-shadow: 0 0 22px rgba(233, 69, 96, 0.5), 0 5px 18px rgba(0,0,0,0.35);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s;
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.3);
+  margin-top: 6px;
   text-transform: uppercase;
+  transition: color 0.2s;
 }
 
-.spin-btn:hover:not(:disabled) {
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 0 0 36px rgba(233, 69, 96, 0.8), 0 8px 24px rgba(0,0,0,0.4);
-}
-
-.spin-btn:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-}
-
-.spin-btn:disabled { opacity: 0.65; cursor: not-allowed; }
-
-.spin-btn.pulsing { animation: btnPulse 2s ease-in-out infinite; }
-
-@keyframes btnPulse {
-  0%, 100% { box-shadow: 0 0 22px rgba(233,69,96,0.5), 0 5px 18px rgba(0,0,0,0.35); transform: scale(1); }
-  50%       { box-shadow: 0 0 42px rgba(233,69,96,0.9), 0 8px 26px rgba(0,0,0,0.4); transform: scale(1.04); }
+.lever-wrap:not(.spinning):hover .lever-label {
+  color: #f5a623;
 }
 </style>
